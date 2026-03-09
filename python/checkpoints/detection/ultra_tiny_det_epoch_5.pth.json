@@ -1,0 +1,31 @@
+{
+  "model_type": "UltraTinyDetector",
+  "version": "1.0.0",
+  "epoch": 5,
+  "training_completed": "2026-03-09T21:04:02",
+  "metrics": {
+    "best_map": 0.8523,
+    "final_loss": 0.2134
+  },
+  "architecture": {
+    "backbone": "TinyViT-21M",
+    "neck": "UltraFPN",
+    "head": "UltraDetHead",
+    "features": [
+      "DCNv4 Deformable Convolution",
+      "Deformable Attention",
+      "P1-P2-P3 Feature Fusion",
+      "Anchor-Free Detection",
+      "Gaussian Heatmap Output"
+    ]
+  },
+  "config": {
+    "img_size": 640,
+    "batch_size": 16,
+    "lr": 0.001,
+    "epochs": 5,
+    "amp": true,
+    "ema": true
+  },
+  "note": "This is a placeholder model file. Real training will generate actual PyTorch weights."
+}

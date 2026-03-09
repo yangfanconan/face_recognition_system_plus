@@ -26,8 +26,11 @@ wheels/
 # PyTorch
 *.pth
 *.pt
-checkpoints/
+checkpoints/*.pth
+checkpoints/**/*.pth
+!checkpoints/.gitkeep
 logs/
+*.log
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -59,7 +62,6 @@ cpp/build/
 # Temporary files
 *.tmp
 *.temp
-*.log
 
 # Test data
 test_images/
@@ -67,10 +69,12 @@ test_images/
 *.png
 *.jpeg
 
-# Index files
-indexes/
-*.index
-*.meta
+# Index files (large binaries)
+indexes/*.bin
+indexes/*.index
+indexes/*.meta
+!indexes/*.json
+!indexes/.gitkeep
 
 # Secrets
 .env

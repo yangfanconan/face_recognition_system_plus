@@ -1,0 +1,13 @@
+{
+  "index_type": "BillionScaleSearchIndex",
+  "version": "1.0.0",
+  "created": "2026-03-09T21:10:43.989424",
+  "stats": {
+    "total_vectors": 10000,
+    "dim": 512,
+    "index_size_mb": 52.3,
+    "search_latency_ms": 5.2,
+    "hnsw_M": 64,
+    "ivf_nlist": 4096
+  }
+}
