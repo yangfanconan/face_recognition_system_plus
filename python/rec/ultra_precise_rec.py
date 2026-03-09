@@ -122,18 +122,24 @@ class DynamicConv(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         """前向传播"""
         B, C, H, W = x.shape
-        
+
         # 计算注意力权重 [B, num_kernels]
-        attn = self.attention(x).view(B, self.num_kernels, 1, 1, 1, 1)
-        
+        attn = self.attention(x).view(B, self.num_kernels)
+
         # 聚合卷积核
-        aggregated_weight = (self.weight.unsqueeze(0) * attn).sum(dim=1)
-        aggregated_bias = (self.bias.unsqueeze(0) * attn.squeeze()).sum(dim=1)
+        # weight: [K, C_out, C_in, k, k], attn: [B, K]
+        # aggregated_weight: [B, C_out, C_in, k, k]
+        aggregated_weight = torch.einsum('kocij,bk->bocij', self.weight, attn)
+        # bias: [K, C_out], attn: [B, K] -> [B, C_out]
+        aggregated_bias = torch.einsum('ko,bk->bo', self.bias, attn)
+
+        # 卷积 - 对 batch 中每个样本分别处理
+        outputs = []
+        for b in range(B):
+            out_b = F.conv2d(x[b:b+1], aggregated_weight[b], aggregated_bias[b], padding=self.kernel_size//2)
+            outputs.append(out_b)
         
-        # 卷积
-        out = F.conv2d(x, aggregated_weight, aggregated_bias, padding=self.kernel_size//2)
-        
-        return out
+        return torch.cat(outputs, dim=0)
 
 
 class SpatialBranch(nn.Module):
@@ -238,55 +244,56 @@ class FrequencyGatewayAttention(nn.Module):
     """
     FGA v2 (Frequency Gateway Attention)
     频域门控注意力
-    
+
     Args:
         channels: 通道数
         reduction: 压缩比例
     """
-    
+
     def __init__(self, channels: int, reduction: int = 4):
         super().__init__()
         self.channels = channels
-        
+        freq_channels = channels * 4  # 4 个频带
+
         # 频域变换
         self.wavelet = WaveletTransform()
-        
+
         # 门控机制
         self.gate = nn.Sequential(
-            nn.Conv2d(channels * 4, channels // reduction, kernel_size=1),
+            nn.Conv2d(freq_channels, freq_channels // reduction, kernel_size=1),
             nn.SiLU(inplace=True),
-            nn.Conv2d(channels // reduction, channels * 4, kernel_size=1),
+            nn.Conv2d(freq_channels // reduction, freq_channels, kernel_size=1),
             nn.Sigmoid(),
         )
-        
+
         # 频域注意力
         self.freq_attention = nn.Sequential(
-            nn.Conv2d(channels, channels // reduction, kernel_size=1),
+            nn.Conv2d(channels, channels // 2, kernel_size=1),
             nn.SiLU(inplace=True),
-            nn.Conv2d(channels // reduction, channels, kernel_size=1),
+            nn.Conv2d(channels // 2, channels, kernel_size=1),
             nn.Sigmoid(),
         )
-    
+
     def forward(self, x: Tensor) -> Tensor:
         """前向传播"""
         B, C, H, W = x.shape
-        
+
         # 小波变换
         ll, lh, hl, hh = self.wavelet(x)
-        
+
         # 上采样恢复尺寸
         ll = F.interpolate(ll, size=(H, W), mode='bilinear', align_corners=False)
         lh = F.interpolate(lh, size=(H, W), mode='bilinear', align_corners=False)
         hl = F.interpolate(hl, size=(H, W), mode='bilinear', align_corners=False)
         hh = F.interpolate(hh, size=(H, W), mode='bilinear', align_corners=False)
-        
+
         # 拼接频域特征
         freq_features = torch.cat([ll, lh, hl, hh], dim=1)
-        
+
         # 门控
         gate = self.gate(freq_features)
         ll_g, lh_g, hl_g, hh_g = gate.chunk(4, dim=1)
-        
+
         # 加权融合
         ll = ll * ll_g
         lh = lh * lh_g
@@ -703,18 +710,25 @@ class UltraPreciseRecognizer(nn.Module):
     def forward(self, x: Tensor) -> Dict[str, Tensor]:
         """
         前向传播
-        
+
         Args:
             x: 输入图像 [B, 3, H, W]
-            
+
         Returns:
             features: 特征字典 {id, attr, depth}
         """
+        input_size = x.shape[2:]
+        
         # 三分支特征提取
         spatial_feat = self.spatial_branch(x)
         freq_feat = self.frequency_branch(x)
         depth_feat, _ = self.depth_branch(x)
-        
+
+        # 确保所有特征尺寸一致
+        spatial_feat = F.interpolate(spatial_feat, size=input_size, mode='bilinear', align_corners=False)
+        freq_feat = F.interpolate(freq_feat, size=input_size, mode='bilinear', align_corners=False)
+        depth_feat = F.interpolate(depth_feat, size=input_size, mode='bilinear', align_corners=False)
+
         # 特征拼接
         fused = torch.cat([spatial_feat, freq_feat, depth_feat], dim=1)
         fused = self.fusion(fused)
