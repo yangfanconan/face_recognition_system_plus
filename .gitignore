@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyTorch
+*.pth
+*.pt
+checkpoints/
+logs/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# C++ Build
+cpp/build/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+
+# TensorRT
+*.engine
+*.trt
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Test data
+test_images/
+*.jpg
+*.png
+*.jpeg
+
+# Index files
+indexes/
+*.index
+*.meta
+
+# Secrets
+.env
+*.key
+*.pem

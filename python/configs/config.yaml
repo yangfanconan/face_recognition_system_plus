@@ -1,0 +1,137 @@
+# Ultra-Face Recognition System Configuration
+# ===========================================
+# 工业级超极限人脸识别系统配置文件
+
+# ============================================================================
+# 模型配置
+# ============================================================================
+[models]
+# 检测模型路径
+det_model_path = checkpoints/detection/ultra_tiny_det_best.pth
+det_engine_path = checkpoints/detection/ultra_tiny_det.engine
+
+# 识别模型路径
+rec_model_path = checkpoints/recognition/ultra_precise_rec_best.pth
+rec_engine_path = checkpoints/recognition/ultra_precise_rec.engine
+
+# 检索索引路径
+search_index_path = indexes/face_index
+
+# ============================================================================
+# 检测器配置
+# ============================================================================
+[detector]
+# 输入图像尺寸
+img_size = 640
+
+# 置信度阈值
+conf_threshold = 0.3
+
+# NMS 阈值
+nms_threshold = 0.5
+
+# 最大检测数
+max_num_detections = 1000
+
+# 小目标增强
+small_target_enhance = true
+
+# ============================================================================
+# 识别器配置
+# ============================================================================
+[recognizer]
+# 输入图像尺寸
+img_size = 112
+
+# 特征维度
+id_dim = 512
+attr_dim = 128
+depth_dim = 64
+
+# 验证阈值
+verify_threshold = 0.5
+
+# ============================================================================
+# 检索器配置
+# ============================================================================
+[retrieval]
+# 返回结果数
+top_k = 10
+
+# 识别阈值
+search_threshold = 0.5
+
+# HNSW 参数
+hnsw_M = 64
+hnsw_ef_construction = 200
+hnsw_ef_search = 64
+
+# IVF 参数
+ivf_nlist = 65536
+ivf_nprobe = 32
+
+# PQ 参数
+pq_code_size = 64
+pq_nbits = 8
+
+# ============================================================================
+# 训练配置
+# ============================================================================
+[training]
+# 检测器训练
+det_batch_size = 32
+det_epochs = 300
+det_lr = 0.001
+det_warmup_epochs = 5
+
+# 识别器训练
+rec_batch_size = 128
+rec_epochs = 100
+rec_lr = 0.1
+rec_warmup_epochs = 5
+
+# AMP 混合精度
+amp = true
+
+# EMA
+ema = true
+ema_decay = 0.999
+
+# ============================================================================
+# 服务配置
+# ============================================================================
+[server]
+# 服务地址
+host = 0.0.0.0
+port = 8000
+
+# 工作进程数
+workers = 4
+
+# 最大并发请求
+max_concurrent_requests = 100
+
+# 缓存配置
+cache_enabled = true
+cache_capacity = 10000
+
+# 日志配置
+log_level = info
+log_path = logs/server.log
+
+# ============================================================================
+# 设备配置
+# ============================================================================
+[device]
+# CUDA 设备
+device = cuda
+gpu_id = 0
+
+# FP16 推理
+use_fp16 = true
+
+# TensorRT 推理
+use_tensorrt = true
+
+# 多线程
+num_workers = 8
