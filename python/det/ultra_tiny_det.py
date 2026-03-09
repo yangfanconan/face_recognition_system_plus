@@ -881,7 +881,6 @@ class SmallTargetWeightedLoss(nn.Module):
 # ============================================================================
 # 后处理：NMS
 # ============================================================================
-@torch.jit.script
 def nms(
     boxes: Tensor,
     scores: Tensor,
@@ -889,43 +888,43 @@ def nms(
 ) -> Tensor:
     """
     非极大值抑制 (NMS)
-    
+
     Args:
         boxes: bbox [N, 4]
         scores: 置信度 [N]
         iou_threshold: IoU 阈值
-        
+
     Returns:
         keep_indices: 保留的索引
     """
     if boxes.numel() == 0:
         return torch.empty((0,), dtype=torch.long, device=boxes.device)
-    
+
     x1, y1, x2, y2 = boxes.unbind(1)
     areas = (x2 - x1) * (y2 - y1)
-    
+
     _, order = scores.sort(descending=True)
-    keep = []
-    
+    keep: list = []
+
     while order.numel() > 0:
-        i = order[0].item()
+        i = int(order[0].item())
         keep.append(i)
-        
+
         if order.numel() == 1:
             break
-        
+
         order = order[1:]
-        xx1 = torch.max(x1[order], x1[i].item())
-        yy1 = torch.max(y1[order], y1[i].item())
-        xx2 = torch.min(x2[order], x2[i].item())
-        yy2 = torch.min(y2[order], y2[i].item())
-        
+        xx1 = torch.max(x1[order], x1[i])
+        yy1 = torch.max(y1[order], y1[i])
+        xx2 = torch.min(x2[order], x2[i])
+        yy2 = torch.min(y2[order], y2[i])
+
         inter = (xx2 - xx1).clamp(min=0) * (yy2 - yy1).clamp(min=0)
-        iou = inter / (areas[order] + areas[i].item() - inter + 1e-7)
-        
+        iou = inter / (areas[order] + areas[i] - inter + 1e-7)
+
         mask = iou <= iou_threshold
         order = order[mask]
-    
+
     return torch.tensor(keep, dtype=torch.long, device=boxes.device)
 
 
