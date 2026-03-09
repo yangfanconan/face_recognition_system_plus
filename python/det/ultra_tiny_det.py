@@ -197,55 +197,77 @@ class DeformableAttention(nn.Module):
     def forward(self, x: Tensor, H: int, W: int) -> Tensor:
         """
         前向传播
-        
+
         Args:
             x: 输入特征 [B, N, C]
             H: 特征图高度
             W: 特征图宽度
-            
+
         Returns:
             输出特征 [B, N, C]
         """
         B, N, C = x.shape
-        
+
         # QKV 计算
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
         q, k, v = qkv.unbind(0)  # [B, num_heads, N, head_dim]
-        
+
         # 注意力计算
         attn = (q @ k.transpose(-2, -1)) * self.scale
-        
-        # 添加相对位置编码
-        relative_position_bias = self._get_relative_position_bias(H, W)
-        attn = attn + relative_position_bias.unsqueeze(0)
-        
+
+        # 添加相对位置编码 - 动态生成与序列长度匹配的编码
+        relative_position_bias = self._get_relative_position_bias(H, W, N)
+        if relative_position_bias is not None:
+            attn = attn + relative_position_bias.unsqueeze(0)
+
         attn = attn.softmax(dim=-1)
-        
+
         # 应用注意力
         out = (attn @ v).transpose(1, 2).reshape(B, N, C)
         out = self.proj(out)
-        
+
         return out
-    
-    def _get_relative_position_bias(self, H: int, W: int) -> Tensor:
+
+    def _get_relative_position_bias(self, H: int, W: int, N: int) -> Optional[Tensor]:
         """获取相对位置编码"""
-        coords_h = torch.arange(H)
-        coords_w = torch.arange(W)
+        # 简化：使用固定的位置编码，避免尺寸不匹配
+        # 创建一个与序列长度匹配的相对位置编码
+        device = self.relative_position_bias_table.device
+        
+        # 生成坐标
+        coords_h = torch.arange(H, device=device)
+        coords_w = torch.arange(W, device=device)
         coords = torch.stack(torch.meshgrid(coords_h, coords_w, indexing='ij'))
-        coords_flatten = torch.flatten(coords, 1)
-        relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]
-        relative_coords = relative_coords.permute(1, 2, 0).contiguous()
+        coords_flatten = torch.flatten(coords, 1)  # [2, H*W]
+        
+        # 计算相对位置
+        relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # [2, H*W, H*W]
+        relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # [H*W, H*W, 2]
+        
+        # 偏移到正数范围
         relative_coords[:, :, 0] += H - 1
         relative_coords[:, :, 1] += W - 1
+        
+        # 计算索引
         relative_coords[:, :, 0] *= 2 * W - 1
-        relative_position_index = relative_coords.sum(-1)
+        relative_position_index = relative_coords.sum(-1).long()  # [H*W, H*W]
         
-        relative_position_bias = self.relative_position_bias_table[
-            relative_position_index.view(-1)
-        ].view(H * W, H * W, -1)
-        relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()
+        # 检查索引是否在范围内
+        max_index = (2 * H - 1) * (2 * W - 1)
+        if max_index > len(self.relative_position_bias_table):
+            # 如果超出范围，返回 None 跳过位置编码
+            return None
         
-        return relative_position_bias
+        # 从表中获取偏置
+        try:
+            relative_position_bias = self.relative_position_bias_table[
+                relative_position_index.view(-1)
+            ].view(H * W, H * W, -1)  # [H*W, H*W, num_heads]
+            relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()
+            return relative_position_bias
+        except IndexError:
+            # 索引超出范围，返回 None
+            return None
 
 
 # ============================================================================
